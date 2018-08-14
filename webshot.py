@@ -4,8 +4,7 @@ import glob, os, sys, time, uuid
 from PIL import Image
 from selenium import webdriver 
 
-destination = '/screenshots/'
-target = destination + str(uuid.uuid4()) + '.png'
+target = 'webshot.png'
 source = sys.argv[1]
 
 crop = None
@@ -36,5 +35,3 @@ if crop != None:
     img = Image.open(target)
     area = img.crop(crop)
     area.save(target, 'png')
-
-print(target.replace(destination, ''))

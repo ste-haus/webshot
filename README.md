@@ -9,5 +9,5 @@ docker build -t arychj/webshot .
 
 Take a screenshot:
 ```
-docker run --rm -v ~/webshots:/screenshots arychj/webshot https://gitlab.com 500 500
+docker run --rm -v `pwd`/gitlab.png:/webshot.png arychj/webshot https://gitlab.com 500 500
 ```

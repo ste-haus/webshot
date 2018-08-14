@@ -21,6 +21,4 @@ RUN mkdir -p /screenshots
 
 COPY webshot.py /webshot
 
-VOLUME /screenshots
-
 ENTRYPOINT ["/webshot/webshot.py"]
