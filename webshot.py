@@ -21,11 +21,13 @@ options.add_argument("--disable-extensions");
 options.add_argument("--disable-dev-shm-usage"); # overcome limited resource problems
 options.add_argument("--no-sandbox");
 
+time.sleep(5)
+
 # open in webpage
 driver = webdriver.Chrome(chrome_options=options)
 driver.get(source)
 
-time.sleep(3)
+time.sleep(5)
 
 driver.save_screenshot(target)
 driver.quit()
