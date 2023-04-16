@@ -56,7 +56,7 @@ def get_args():
 args = get_args()
 browser = get_browser(args.browser_width, args.browser_height)
 get_page(browser, args.load_delay, args.url, args.output)
-crop(args.crop_x, args.crop_y, args.crop_width, args.crop_height, args.filename)
+crop(args.crop_x, args.crop_y, args.crop_width, args.crop_height, args.output)
 
-print(f"Webshot available at '{args.filename}'", flush=True)
+print(f"Webshot available at '{args.output}'", flush=True)
 
