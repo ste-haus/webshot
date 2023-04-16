@@ -42,7 +42,7 @@ def crop(x, y, width, height, filename):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', required=True, help='the url to capture')
-    parser.add_argument('--filename', default='/output/webshot.png', help='the filename to save')
+    parser.add_argument('--output', default='/output/webshot.png', help='output the webshot at this path')
     parser.add_argument('--crop_x', type=int, default=0, help='start cropping at this X coordinate')
     parser.add_argument('--crop_y', type=int, default=0, help='start cropping at this Y coordinate')
     parser.add_argument('--crop_width', type=int, help='crop to X+width')
@@ -55,7 +55,7 @@ def get_args():
 
 args = get_args()
 browser = get_browser(args.browser_width, args.browser_height)
-get_page(browser, args.load_delay, args.url, args.filename)
+get_page(browser, args.load_delay, args.url, args.output)
 crop(args.crop_x, args.crop_y, args.crop_width, args.crop_height, args.filename)
 
 print(f"Webshot available at '{args.filename}'", flush=True)
