@@ -32,7 +32,7 @@ def get_page(browser, delay, url, target):
 
 def crop(x, y, width, height, filename):
     if width != None and height != None:
-        print(f"Cropping ({x}, {y}), ({x+widht}, {y+height})... ", flush=True)
+        print(f"Cropping ({x}, {y}), ({x+width}, {y+height})... ", flush=True)
         crop = (x, y, width, height)
         img = Image.open(filename)
         area = img.crop(crop)
