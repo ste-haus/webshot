@@ -22,11 +22,11 @@ def get_browser(width, height):
 
     return browser
 
-def get_page(browser, delay, url, target):
+def get_page(browser, delay, url, filename):
     print(f"Loading '{url}'... ", end = '', flush=True)
     browser.get(url)
     time.sleep(delay)
-    browser.save_screenshot(target)
+    browser.save_screenshot(filename)
     browser.quit()
     print('done.', flush=True)
 
@@ -36,7 +36,7 @@ def crop(x, y, width, height, filename):
         crop = (x, y, width, height)
         img = Image.open(filename)
         area = img.crop(crop)
-        area.save(target, 'png')
+        area.save(filename, 'png')
         print('done.', flush=True)
 
 def get_args():
