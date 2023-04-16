@@ -1,0 +1,8 @@
+{
+  "name": "webshot",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ste-haus/webshot.git"
+  },
+  "version": "1.0.4"
+}
