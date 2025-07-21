@@ -13,10 +13,18 @@ RUN apk add --update \
     chromium \
     chromium-chromedriver \
     chromium-swiftshader \
+    python3-dev \
+    libffi-dev \
+    build-base \
   && rm -rf /var/cache/apk/*
 
+RUN python3 -m venv /env
+
+ENV PATH="/env/bin:$PATH"
+
 COPY ./requirements.txt .
-RUN pip3 install --upgrade pip \
+
+RUN pip install --upgrade pip \
   && pip install -r ./requirements.txt
 
 RUN mkdir -p /output
