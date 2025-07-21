@@ -9,7 +9,6 @@ ENV LIBRARY_PATH=/lib:/usr/lib
 RUN apk add --update \
     python3 \
     py-pip \
-    py-pillow \
     chromium \
     chromium-chromedriver \
     chromium-swiftshader \
