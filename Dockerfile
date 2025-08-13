@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     libxtst6 \
     chromium \
     chromium-driver \
-    libgles2-mesa \
+    libgles2-mesa-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables to tell Chromium to use SwiftShader
