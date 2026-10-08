@@ -4,8 +4,8 @@ import argparse, glob, io, math, os, sys, time, uuid
 from PIL import Image
 from selenium import webdriver 
 
-def get_browser(width, height):
-    print(f"Setting up {width}x{height} browser... ", flush=True)
+def get_browser(width, height, scale):
+    print(f"Setting up {width}x{height} browser at {scale}x... ", flush=True)
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('start-maximized')
@@ -15,6 +15,8 @@ def get_browser(width, height):
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-gpu --use-gl=swiftshader')
     options.add_argument(f'--window-size={width},{height}')
+    # Draws the page with `scale` device pixels per CSS pixel: the same layout, more detail
+    options.add_argument(f'--force-device-scale-factor={scale}')
 
     browser = webdriver.Chrome(options=options)
 
@@ -93,13 +95,14 @@ def save_frames(frames, interval_seconds, filename):
         optimize=False
     )
 
-def make_cropbox(x, y, width, height):
+def make_cropbox(x, y, width, height, scale):
+    # The crop is given in CSS pixels; the screenshot is in device pixels
     cropbox = None
     if width > 0 and height > 0:
-        left = x
-        upper = y
-        right = x + width
-        lower = y + height
+        left = round(x * scale)
+        upper = round(y * scale)
+        right = round((x + width) * scale)
+        lower = round((y + height) * scale)
         cropbox = (left, upper, right, lower)
         print(f'Cropping to {cropbox}...', flush=True)
 
@@ -118,13 +121,14 @@ def get_args():
     parser.add_argument('--load_delay', default=10, type=int, help='wait this many seconds for the URL to load')
     parser.add_argument('--duration', default=-1, type=int, help='capture a gif for this many seconds')
     parser.add_argument('--framerate', default=-1, type=int, help='if duration is set, cpture a frame on this interval')
+    parser.add_argument('--scale', default=1, type=float, help='device pixels per CSS pixel: 2 renders the same page twice as sharp, at twice the size')
 
     return parser.parse_args()
 
 args = get_args()
 
-cropbox = make_cropbox(args.crop_x, args.crop_y, args.crop_width, args.crop_height)
-browser = get_browser(args.browser_width, args.browser_height)
+cropbox = make_cropbox(args.crop_x, args.crop_y, args.crop_width, args.crop_height, args.scale)
+browser = get_browser(args.browser_width, args.browser_height, args.scale)
 get_page(browser, args.load_delay, args.url, args.output, cropbox, args.duration, args.framerate)
 
 print(f"Webshot available at '{args.output}'", flush=True)

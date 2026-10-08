@@ -16,3 +16,5 @@ docker run --rm \
   --crop_width 500 \
   --crop_height 500
 ```
+
+`--scale 2` renders the page with two device pixels per CSS pixel, as a HiDPI screen would: the same layout and crop, twice the pixels in each direction, so it stays sharp when shown larger than its CSS size. The crop flags stay in CSS pixels.
