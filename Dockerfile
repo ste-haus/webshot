@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     chromium \
     chromium-driver \
     libgles2-mesa-dev \
+    tini \
   && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables to tell Chromium to use SwiftShader
@@ -40,8 +41,13 @@ RUN pip install --upgrade pip \
 # Create output directory
 RUN mkdir -p /output
 
+# The capture API's port, when the container starts with no flags
+ENV PORT=8080
+EXPOSE ${PORT}
+
 # Copy the source code
 COPY ./src/ .
 
-# Set the entry point to run the webshot script
-ENTRYPOINT ["./webshot.py"]
+# Set the entry point to run the webshot script, under tini so the Chromium processes each capture
+# orphans are reaped, which matters once the API keeps the container running
+ENTRYPOINT ["tini", "--", "./webshot.py"]
