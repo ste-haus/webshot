@@ -1,8 +1,25 @@
 #!/usr/bin/env python3
 
-import argparse, glob, io, math, os, sys, time, uuid
+import argparse, io, math, sys, time
 from PIL import Image
-from selenium import webdriver 
+from selenium import webdriver
+
+DEFAULT_OUTPUT = '/output/webshot.png'
+PAGE_LOAD_TIMEOUT_SECONDS = 60
+
+# The capture settings shared by the CLI flags and the API's JSON body: name, type, default, help
+PARAMETERS = [
+    ('crop_x', int, 0, 'start cropping at this X coordinate'),
+    ('crop_y', int, 0, 'start cropping at this Y coordinate'),
+    ('crop_width', int, 500, 'crop to X+width'),
+    ('crop_height', int, 500, 'crop to Y+height'),
+    ('browser_width', int, 1920, 'the width of the browser window'),
+    ('browser_height', int, 1080, 'the height of the browser window'),
+    ('load_delay', int, 10, 'wait this many seconds for the URL to load'),
+    ('duration', int, -1, 'capture a gif for this many seconds'),
+    ('framerate', int, -1, 'if duration is set, cpture a frame on this interval'),
+    ('scale', float, 1, 'device pixels per CSS pixel: 2 renders the same page twice as sharp, at twice the size'),
+]
 
 def get_browser(width, height, scale):
     print(f"Setting up {width}x{height} browser at {scale}x... ", flush=True)
@@ -19,6 +36,7 @@ def get_browser(width, height, scale):
     options.add_argument(f'--force-device-scale-factor={scale}')
 
     browser = webdriver.Chrome(options=options)
+    browser.set_page_load_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
 
     return browser
 
@@ -63,8 +81,6 @@ def get_page(browser, delay, url, filename, cropbox=None, duration=-1, framerate
             img = img.crop(cropbox)
             img.save(filename, 'png')
 
-    browser.quit()
-
 
 def crop_frames(frames, cropbox):
     """
@@ -108,28 +124,38 @@ def make_cropbox(x, y, width, height, scale):
 
     return cropbox
 
+def capture(url, filename, crop_x, crop_y, crop_width, crop_height, browser_width, browser_height, load_delay, duration, framerate, scale):
+    cropbox = make_cropbox(crop_x, crop_y, crop_width, crop_height, scale)
+    browser = get_browser(browser_width, browser_height, scale)
+
+    try:
+        get_page(browser, load_delay, url, filename, cropbox, duration, framerate)
+    finally:
+        browser.quit()
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', required=True, help='the url to capture')
-    parser.add_argument('--output', default='/output/webshot.png', help='output the webshot at this path')
-    parser.add_argument('--crop_x', type=int, default=0, help='start cropping at this X coordinate')
-    parser.add_argument('--crop_y', type=int, default=0, help='start cropping at this Y coordinate')
-    parser.add_argument('--crop_width', type=int, default=500, help='crop to X+width')
-    parser.add_argument('--crop_height', type=int, default=500, help='crop to Y+height')
-    parser.add_argument('--browser_width', default=1920, type=int, help='the width of the browser window')
-    parser.add_argument('--browser_height', default=1080, type=int, help='the height of the browser window')
-    parser.add_argument('--load_delay', default=10, type=int, help='wait this many seconds for the URL to load')
-    parser.add_argument('--duration', default=-1, type=int, help='capture a gif for this many seconds')
-    parser.add_argument('--framerate', default=-1, type=int, help='if duration is set, cpture a frame on this interval')
-    parser.add_argument('--scale', default=1, type=float, help='device pixels per CSS pixel: 2 renders the same page twice as sharp, at twice the size')
+    parser.add_argument('--output', default=DEFAULT_OUTPUT, help='output the webshot at this path')
+
+    for name, kind, default, description in PARAMETERS:
+        parser.add_argument(f'--{name}', type=kind, default=default, help=description)
 
     return parser.parse_args()
 
-args = get_args()
+def main():
+    args = get_args()
+    options = {name: getattr(args, name) for name, _, _, _ in PARAMETERS}
 
-cropbox = make_cropbox(args.crop_x, args.crop_y, args.crop_width, args.crop_height, args.scale)
-browser = get_browser(args.browser_width, args.browser_height, args.scale)
-get_page(browser, args.load_delay, args.url, args.output, cropbox, args.duration, args.framerate)
+    capture(args.url, args.output, **options)
 
-print(f"Webshot available at '{args.output}'", flush=True)
+    print(f"Webshot available at '{args.output}'", flush=True)
+
+if __name__ == '__main__':
+    # Flags take one webshot and exit; no flags at all serves the capture API
+    if len(sys.argv) > 1:
+        main()
+    else:
+        import server
+        server.serve()
 
