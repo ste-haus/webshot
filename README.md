@@ -19,6 +19,30 @@ docker run --rm \
 
 `--scale 2` renders the page with two device pixels per CSS pixel, as a HiDPI screen would: the same layout and crop, twice the pixels in each direction, so it stays sharp when shown larger than its CSS size. The crop flags stay in CSS pixels.
 
+## Animated pages
+
+`--duration` and `--framerate` record a gif in real time: screenshots on a timer, so frame timing drifts with how fast the browser keeps up.
+
+`--frames N` instead captures one loop of a page that offers `window.webshotCapture`, a frame at a time, so every frame lands exactly where it should however long each screenshot takes:
+
+| Member | |
+|---|---|
+| `ready` | A promise of `{status: 'ready' \| 'timeout' \| 'error', error?}`, resolved once the page has loaded what it needs, or given up waiting and drawn what it has |
+| `durationMs` | The length of the page's loop |
+| `setTime(ms)` | Shows that moment of the loop, resolving once it's painted |
+
+webshot waits up to `--load_delay` seconds for the interface, then for `ready`, and seeks `N` evenly spaced moments over `[0, durationMs)`, leaving out the end so the gif doesn't repeat its first frame at the seam. Each frame plays for `durationMs / N`, to the nearest 10 ms, the step a gif stores. A status other than `ready` is logged and captured anyway; a page that never offers the interface fails the capture, so the last good image stays in place. `--frames` needs a `.gif` output and can't be combined with `--duration`.
+```
+docker run --rm \
+  -v `pwd`/captures:/output \
+  ste-haus/webshot \
+  --url 'https://example.com/map/?capture' \
+  --output /output/map.gif \
+  --frames 180
+```
+
+Both kinds of gif share one palette across their frames, so a pixel that doesn't change keeps its value and only what moves is stored.
+
 ## Blocking requests
 
 `BLOCKED_URLS` is a comma-separated list of URL patterns, with `*` as a wildcard, whose requests fail immediately in every page captured, in both the CLI and the API:
