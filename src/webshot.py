@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 
-import argparse, io, math, sys, time
+import argparse, io, math, os, sys, time
 from PIL import Image
 from selenium import webdriver
 
 DEFAULT_OUTPUT = '/output/webshot.png'
 PAGE_LOAD_TIMEOUT_SECONDS = 60
+
+# URL patterns every page's requests to fail immediately, comma separated, with * as a wildcard.
+# A request that never answers (a tracker on a blackholed host) otherwise holds the page's load
+# event open until the page load times out.
+BLOCKED_URLS_VARIABLE = 'BLOCKED_URLS'
+BLOCKED_URLS_SEPARATOR = ','
+BLOCKED_URLS = [pattern.strip() for pattern in os.environ.get(BLOCKED_URLS_VARIABLE, '').split(BLOCKED_URLS_SEPARATOR) if pattern.strip()]
 
 # The capture settings shared by the CLI flags and the API's JSON body: name, type, default, help
 PARAMETERS = [
@@ -37,6 +44,11 @@ def get_browser(width, height, scale):
 
     browser = webdriver.Chrome(options=options)
     browser.set_page_load_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
+
+    if BLOCKED_URLS:
+        print(f"Blocking {', '.join(BLOCKED_URLS)}...", flush=True)
+        browser.execute_cdp_cmd('Network.enable', {})
+        browser.execute_cdp_cmd('Network.setBlockedURLs', {'urls': BLOCKED_URLS})
 
     return browser
 

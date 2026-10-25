@@ -19,6 +19,17 @@ docker run --rm \
 
 `--scale 2` renders the page with two device pixels per CSS pixel, as a HiDPI screen would: the same layout and crop, twice the pixels in each direction, so it stays sharp when shown larger than its CSS size. The crop flags stay in CSS pixels.
 
+## Blocking requests
+
+`BLOCKED_URLS` is a comma-separated list of URL patterns, with `*` as a wildcard, whose requests fail immediately in every page captured, in both the CLI and the API:
+```
+docker run --rm \
+  -e BLOCKED_URLS='*google-analytics.com*,*googletagmanager.com*' \
+  ...
+```
+
+A page's load event waits for every script it adds while loading, including async trackers. Where DNS points a blocked tracker at an address that never answers, the page never finishes loading and the capture times out; blocking the tracker here lets it fail at once. Unset, nothing is blocked.
+
 ## Capture API
 
 Run it with no flags and it serves an HTTP API instead, taking one capture at a time:
