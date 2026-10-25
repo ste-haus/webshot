@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse, io, math, os, sys, time
+import argparse, base64, io, math, os, sys, time
 from PIL import Image
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
@@ -17,8 +17,12 @@ GIF_EXTENSION = '.gif'
 GIF_DELAY_STEP_MS = 10
 PALETTE_COLORS = 256
 PALETTE_SAMPLE_FRAMES = 4
-# Fast over small: frames are only held until the gif is encoded
-FRAME_COMPRESS_LEVEL = 1
+
+# A DevTools screenshot clipped to the crop, in CSS pixels at one CSS pixel per CSS pixel, which
+# comes back in device pixels as a full-window screenshot does
+SCREENSHOT_COMMAND = 'Page.captureScreenshot'
+SCREENSHOT_FORMAT = 'png'
+CLIP_SCALE = 1
 
 # A page that can be captured frame by frame exposes window.webshotCapture: `ready`, a promise of
 # {status, error?}; `durationMs`, its loop's length; and `setTime(ms)`, which resolves once that
@@ -101,12 +105,25 @@ def check(filename, duration, frames):
     if os.path.splitext(filename)[1].lower() != GIF_EXTENSION:
         raise ValueError(f'frames are saved as a gif, so output must end in {GIF_EXTENSION}')
 
-def get_page(browser, delay, url, filename, cropbox=None, duration=-1, framerate=-1, frames=FRAMES_OFF):
+def screenshot(browser, clip, fast=False):
+    # Clipped by the browser, so only the crop is read back and encoded rather than the whole
+    # window, most of which would be thrown away. `fast` trades size for speed, for frames that
+    # are only held until the gif is encoded.
+    if clip is None:
+        return browser.get_screenshot_as_png()
+
+    params = {'format': SCREENSHOT_FORMAT, 'clip': clip}
+    if fast:
+        params['optimizeForSpeed'] = True
+
+    return base64.b64decode(browser.execute_cdp_cmd(SCREENSHOT_COMMAND, params)['data'])
+
+def get_page(browser, delay, url, filename, clip=None, duration=-1, framerate=-1, frames=FRAMES_OFF):
     print(f"Loading '{url}'... ", flush=True)
     browser.get(url)
 
     if frames != FRAMES_OFF:
-        return capture_loop(browser, delay, filename, cropbox, frames)
+        return capture_loop(browser, delay, filename, clip, frames)
 
     if delay:
         print(f'Waiting {delay} seconds for page to load...', flush=True)
@@ -121,7 +138,7 @@ def get_page(browser, delay, url, filename, cropbox=None, duration=-1, framerate
         start_time = time.time()
 
         for i in range(total_frames):
-            frames.append(browser.get_screenshot_as_png())
+            frames.append(screenshot(browser, clip, fast=True))
 
             next_frame_time = start_time + (i + 1) * interval_seconds
             sleep_time = next_frame_time - time.time()
@@ -131,17 +148,14 @@ def get_page(browser, delay, url, filename, cropbox=None, duration=-1, framerate
         elapsed = time.time() - start_time
         print(f"Capture completed in {elapsed:.2f} seconds", flush=True)
 
-        save_frames(crop_frames(frames, cropbox), interval_seconds * MILLISECONDS_PER_SECOND, filename)
+        save_frames(frames, interval_seconds * MILLISECONDS_PER_SECOND, filename)
 
     else:
-        browser.save_screenshot(filename)
-        if cropbox:
-            img = Image.open(filename)
-            img = img.crop(cropbox)
-            img.save(filename, 'png')
+        with open(filename, 'wb') as image:
+            image.write(screenshot(browser, clip))
 
 
-def capture_loop(browser, delay, filename, cropbox, frame_count):
+def capture_loop(browser, delay, filename, clip, frame_count):
     # The page decides when it's ready and what each frame shows, so load_delay only bounds how
     # long it may take to offer the interface
     print(f'Waiting up to {delay} seconds for the page to offer webshotCapture...', flush=True)
@@ -167,32 +181,19 @@ def capture_loop(browser, delay, filename, cropbox, frame_count):
     # One loop over [0, duration): a frame at the duration would repeat the first at the seam
     print(f'Capturing {frame_count} frames over its {duration_ms:g} ms loop...', flush=True)
     start_time = time.time()
+    # Kept as the PNGs they arrive as until the gif is encoded: decoded, each is several megabytes,
+    # and a few hundred of them would exhaust the container's memory
     frames = []
     for index in range(frame_count):
         seek = browser.execute_async_script(SEEK_CAPTURE_SCRIPT, duration_ms * index / frame_count)
         if not seek['ok']:
             raise RuntimeError(f'the page failed to show frame {index}: {seek["error"]}')
 
-        frames.extend(crop_frames([browser.get_screenshot_as_png()], cropbox))
+        frames.append(screenshot(browser, clip, fast=True))
 
     print(f'Capture completed in {time.time() - start_time:.2f} seconds', flush=True)
 
     save_frames(frames, interval_ms, filename)
-
-def crop_frames(pngs, cropbox):
-    # Frames stay compressed until they're encoded: decoded, a full-window screenshot at scale 2 is
-    # ~33 MB, and a few hundred of them would exhaust the container's memory
-    frames = []
-    for png in pngs:
-        image = decode_frame(png)
-        if cropbox:
-            image = image.crop(cropbox)
-
-        cropped = io.BytesIO()
-        image.save(cropped, 'png', compress_level=FRAME_COMPRESS_LEVEL)
-        frames.append(cropped.getvalue())
-
-    return frames
 
 def decode_frame(png):
     return Image.open(io.BytesIO(png)).convert('RGB')
@@ -226,25 +227,20 @@ def save_frames(frames, interval_ms, filename):
         optimize=False
     )
 
-def make_cropbox(x, y, width, height, scale):
-    # The crop is given in CSS pixels; the screenshot is in device pixels
-    cropbox = None
-    if width > 0 and height > 0:
-        left = round(x * scale)
-        upper = round(y * scale)
-        right = round((x + width) * scale)
-        lower = round((y + height) * scale)
-        cropbox = (left, upper, right, lower)
-        print(f'Cropping to {cropbox}...', flush=True)
+def make_clip(x, y, width, height):
+    # The crop is given in CSS pixels, as DevTools takes it
+    if width <= 0 or height <= 0:
+        return None
 
-    return cropbox
+    print(f'Cropping to {width}x{height} at ({x}, {y})...', flush=True)
+    return {'x': x, 'y': y, 'width': width, 'height': height, 'scale': CLIP_SCALE}
 
 def capture(url, filename, crop_x, crop_y, crop_width, crop_height, browser_width, browser_height, load_delay, duration, framerate, frames, scale):
-    cropbox = make_cropbox(crop_x, crop_y, crop_width, crop_height, scale)
+    clip = make_clip(crop_x, crop_y, crop_width, crop_height)
     browser = get_browser(browser_width, browser_height, scale)
 
     try:
-        get_page(browser, load_delay, url, filename, cropbox, duration, framerate, frames)
+        get_page(browser, load_delay, url, filename, clip, duration, framerate, frames)
     finally:
         browser.quit()
 
