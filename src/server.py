@@ -2,7 +2,7 @@ import json, os, queue, threading, time, uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from webshot import PARAMETERS, capture
+from webshot import PARAMETERS, capture, check
 
 PORT = int(os.environ.get('PORT', '8080'))
 OUTPUT_DIRECTORY = os.environ.get('OUTPUT_DIRECTORY', '/output')
@@ -98,6 +98,8 @@ def parse(body):
             raise ValueError(f'{name} must be {"an integer" if kind is int else "a number"}')
 
         options[name] = kind(value)
+
+    check(filename, options['duration'], options['frames'])
 
     return url, filename, options
 
